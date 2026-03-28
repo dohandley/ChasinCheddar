@@ -121,8 +121,8 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;fon
 .pg{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-4);margin-top:1px}
 /* prop pill */
 .pp{display:inline-flex;padding:3px 7px;border-radius:5px;font-size:10.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.pp-o{background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)}
-.pp-u{background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)}
+.pp-o{background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border)}
+.pp-u{background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)}
 /* ev */
 .ev{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px}
 .evh{color:var(--green-text)}.evw{color:var(--amber-text)}.evc{color:var(--text-2)}
@@ -269,13 +269,13 @@ window.toggleTheme=()=>{S.theme=S.theme==='dark'?'light':'dark';document.documen
 function lR(p,i){const sc=(p.side||'').toLowerCase()==='under'?'pp-u':'pp-o',ec=p.ev>=12?'evh':p.ev>=5?'evw':'evc';
   const gc=GM[p.grade.toLowerCase()]||'gc',rc=i<=3?`rk-${i}`:p.grade==='S'?'rk-s':p.grade==='A'?'rk-a':p.grade==='B'?'rk-b':'rk-c';
   const m=i===1?'🥇':i===2?'🥈':i===3?'🥉':i;const sclr=p.score>=68?'var(--amber)':p.score>=52?'var(--green)':p.score>=38?'var(--blue)':'var(--text-4)';
-  const cn=p.confirmed?'<span class="cf">CONF</span>':'';const tc=p.resolved?(p.hit?'hx':'rx'):'';
+  const tc=p.resolved?(p.hit?'hx':'rx'):'';
   let rb='';if(p.resolved){const c=p.hit===null?'push':p.hit?'hit':'miss',l=p.hit===null?'PUSH':p.hit?'HIT':'MISS';
     const si=p.actual_stat!=null&&p.actual_stat!=='DNP'&&p.actual_stat!=='NOT FOUND'?` ${p.actual_stat}`:'';
     rb=`<div class="rbs"><span class="rb ${c}">${l}${si}</span><button class="rb" onclick="event.stopPropagation();ur('${p.id}')">↩</button></div>`}
   else rb=`<div class="rbs"><button class="rb" onclick="event.stopPropagation();mr('${p.id}',true)">✓</button><button class="rb" onclick="event.stopPropagation();mr('${p.id}',false)">✗</button><button class="rb" onclick="event.stopPropagation();mr('${p.id}',null)">—</button></div>`;
   return`<tr class="${tc}"><td style="width:36px;text-align:center"><span class="rk ${rc}">${m}</span></td>
-    <td><div class="pn">${p.player}${cn}</div><div class="pg">${p.game||'—'} · ${fTime(p.game_time)}</div></td>
+    <td><div class="pn">${p.player}</div><div class="pg">${p.game||'—'} · ${fTime(p.game_time)}</div></td>
     <td><span class="pp ${sc}">${p.market} ${(p.side||'O')[0].toUpperCase()} ${p.line}</span></td>
     <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fO(p.best_odds)}</td>
     <td class="hs" style="color:var(--amber-text);font-weight:700;font-family:'JetBrains Mono',monospace">${(p.best_book||'—').toUpperCase()}</td>
