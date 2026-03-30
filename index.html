@@ -59,6 +59,17 @@ const aS=()=>Object.values(S.days).flatMap(d=>sP(d.picks));
 const rS=()=>aS().filter(p=>p.resolved);
 const tS=()=>sP((S.days[td()]||{picks:[]}).picks);
 const sC=()=>{const c={};Object.values(S.days).forEach(d=>(d.picks||[]).forEach(p=>{const s=p.sport||'nba';c[s]=(c[s]||0)+1}));return c};
+
+// ═══ NORMALIZE HELPERS FOR ROBUST MATCHING ═══
+// Lowercase, trim, collapse whitespace/underscores so "batter_total_bases" matches "Batter Total Bases"
+const nK=s=>(s||'').toString().toLowerCase().trim().replace(/[_\s]+/g,' ');
+// Key 1: player + market + side + date (strict)
+const mK=p=>nK(p.player)+'|'+nK(p.market)+'|'+nK(p.side)+'|'+p.date;
+// Key 2: player + market + date (side might differ between over/under)
+const mK2=p=>nK(p.player)+'|'+nK(p.market)+'|'+p.date;
+// Key 3: player + date + line (market name format might differ entirely)
+const mK3=p=>nK(p.player)+'|'+p.date+'|'+p.line;
+
 function stats(){const allRes=rS(),res=allRes.filter(p=>p.list==='best_bets'),hits=res.filter(p=>p.hit),tp=tS();const wr=res.length?Math.round(hits.length/res.length*100):0;
   let w=res.length*10,ret=0;hits.forEach(p=>{const o=p.best_odds;ret+=o>0?10+10*o/100:10+10*100/Math.abs(o)});const roi=w?Math.round((ret-w)/w*100):0;
   const sr=[...res].sort((a,b)=>b.date.localeCompare(a.date)||b.rank-a.rank);let stk=0,stT='';
@@ -162,12 +173,41 @@ window.doImp=()=>{const raw=document.getElementById('id')?.value;if(!raw?.trim()
   try{let data=JSON.parse(raw);if(!Array.isArray(data)){if(typeof data==='object'){const p=[];Object.values(data).forEach(v=>{if(Array.isArray(v))p.push(...v);else if(v?.picks)p.push(...v.picks)});data=p}}
   if(!data.length){toast('No picks found');return}
   function nH(h,r){if(!r)return{hit:null,resolved:false};if(h==='win'||h===true)return{hit:true,resolved:true};if(h==='loss'||h===false)return{hit:false,resolved:true};return{hit:null,resolved:true}}
-  let rc=0;const byD={};
+  let rc=0,matched=0;const byD={};
   data.forEach((p,i)=>{const d=p.date||td();if(!byD[d])byD[d]=[];let gr=p.grade||(p.score>=68?'S':p.score>=52?'A':p.score>=38?'B':'C');gr=gr.replace(/[🔥✅⚠️📊⭐\s]+/g,'').trim()||'C';if(gr==='FIRE')gr='S';if(gr==='SOLID')gr='A';if(gr==='LEAN')gr='B';const{hit,resolved}=nH(p.hit,p.resolved);if(resolved)rc++;let list=p.list||(Math.abs(p.best_odds||0)>=300?'lotto':'best_bets');if(list==='lotto_plays')list='lotto';
     byD[d].push({id:p.id||`${d}-${p.sport||S.sp}-${i}`,sport:p.sport||S.sp,player:p.player||'?',game:p.game||'',game_time:p.game_time||'',market:p.market||'',side:p.side||'Over',line:p.line||0,best_odds:p.best_odds||0,best_book:p.best_book||'',ev:p.ev||0,kelly:p.kelly||0,coverage:p.coverage||0,score:p.score||0,grade:gr,list,dvp:p.dvp||0,boost:p.boost||1,proj_edge:p.proj_edge||0,confirmed:p.confirmed||false,actual_stat:p.actual_stat||null,hit,resolved,date:d,rank:p.rank||i+1})});
-  Object.entries(byD).forEach(([d,picks])=>{if(S.days[d]){const ex=S.days[d].picks||[];const eM={};ex.forEach(p=>{eM[p.player+'|'+p.market+'|'+p.side+'|'+p.date]=p});picks.forEach(p=>{const k=p.player+'|'+p.market+'|'+p.side+'|'+p.date;if(eM[k]){if(p.resolved){eM[k].resolved=p.resolved;eM[k].hit=p.hit;eM[k].actual_stat=p.actual_stat}}else ex.push(p)});S.days[d].picks=ex}else S.days[d]={picks,imported:Date.now()};
+
+  // ═══ ROBUST MERGE: 3-tier normalized matching ═══
+  Object.entries(byD).forEach(([d,picks])=>{if(S.days[d]){const ex=S.days[d].picks||[];
+    // Build 3 lookup maps from EXISTING picks (most specific → least)
+    const eM1={},eM2={},eM3={};
+    ex.forEach(p=>{
+      eM1[mK(p)]=p;                    // player+market+side+date (normalized)
+      const k2=mK2(p);if(!eM2[k2])eM2[k2]=p;  // player+market+date
+      const k3=mK3(p);if(!eM3[k3])eM3[k3]=p;  // player+date+line
+    });
+    const used=new Set();
+    picks.forEach(p=>{
+      // Try exact match first (player+market+side+date, all normalized/lowercased)
+      let found=eM1[mK(p)];
+      // Fallback 2: player+market+date (side might be capitalized differently or missing)
+      if(!found){found=eM2[mK2(p)]}
+      // Fallback 3: player+date+line (market name format might differ entirely, e.g. "batter_total_bases" vs "TB")
+      if(!found){found=eM3[mK3(p)]}
+      if(found&&!used.has(found.id)){
+        used.add(found.id);matched++;
+        // Update resolved status if incoming is resolved
+        if(p.resolved){found.resolved=p.resolved;found.hit=p.hit;found.actual_stat=p.actual_stat}
+        // Backfill missing fields
+        if(!found.game&&p.game)found.game=p.game;
+        if(!found.game_time&&p.game_time)found.game_time=p.game_time;
+        if(p.score&&p.score>found.score)found.score=p.score;
+      }else if(!found){ex.push(p)}
+    });S.days[d].picks=ex}else S.days[d]={picks,imported:Date.now()};
     ['nba','mlb'].forEach(sp=>{['best_bets','lotto'].forEach(ls=>{const g=S.days[d].picks.filter(p=>p.sport===sp&&p.list===ls).sort((a,b)=>b.score-a.score);g.forEach((p,i)=>p.rank=i+1)})})});
-  sv();document.getElementById('imp')?.remove();render();toast(`Imported ${data.length} picks${rc?' ('+rc+' resolved)':''}!`)}catch(e){toast('Invalid JSON');console.error(e)}};
+  sv();document.getElementById('imp')?.remove();render();
+  const parts=[`${data.length} picks`];if(rc)parts.push(`${rc} resolved`);if(matched)parts.push(`${matched} matched`);
+  toast(`Imported ${parts.join(' · ')}!`)}catch(e){toast('Invalid JSON');console.error(e)}};
 window.clr=()=>{if(!confirm('Clear ALL data (NBA + MLB)?'))return;S.days={};sv();document.getElementById('imp')?.remove();render();toast('Cleared all data')};
 render();
 </script>
