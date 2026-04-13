@@ -47,7 +47,7 @@ const LS='cc7';
 const FB_CFG={apiKey:"YOUR_API_KEY"};const FB_ON=!FB_CFG.apiKey.startsWith('YOUR');
 const SP={nba:{e:'🏀',l:'NBA'},mlb:{e:'⚾',l:'MLB'}};
 const GM={s:'gs',a:'ga',b:'gb',c:'gc'};
-let S={v:'picks',sp:'nba',scope:'bb',f:'all',q:'',sf:'all',lf:'all',days:{},theme:'light'};
+let S={v:'picks',sp:'nba',scope:'bb',unit:10,f:'all',q:'',sf:'all',lf:'all',days:{},theme:'light'};
 function ld(){try{const d=JSON.parse(localStorage.getItem(LS));if(d)S={...S,...d}}catch(e){}}
 function sv(){localStorage.setItem(LS,JSON.stringify(S))}
 ld();document.documentElement.setAttribute('data-theme',S.theme||'light');
@@ -83,10 +83,11 @@ function stats(){
   // res = picks in CURRENT SCOPE. All headline numbers derive from this.
   const res=allRes.filter(inScope),hits=res.filter(p=>p.hit===true),tp=tS();
   const wr=res.length?Math.round(hits.length/res.length*100):0;
-  let w=res.length*10,ret=0;hits.forEach(p=>{const o=p.best_odds;ret+=o>0?10+10*o/100:10+10*100/Math.abs(o)});
+  const U=Number(S.unit)||10; // dollar stake per pick
+  let w=res.length*U,ret=0;hits.forEach(p=>{const o=p.best_odds;ret+=o>0?U+U*o/100:U+U*100/Math.abs(o)});
   const roi=w?Math.round((ret-w)/w*100):0;
   // Streak based on scoped daily P/L
-  const scopedDayPL={};res.forEach(p=>{if(!scopedDayPL[p.date])scopedDayPL[p.date]=0;const o=p.best_odds;if(p.hit){scopedDayPL[p.date]+=o>0?(10*o/100):(10*100/Math.abs(o))}else scopedDayPL[p.date]-=10});
+  const scopedDayPL={};res.forEach(p=>{if(!scopedDayPL[p.date])scopedDayPL[p.date]=0;const o=p.best_odds;if(p.hit){scopedDayPL[p.date]+=o>0?(U*o/100):(U*100/Math.abs(o))}else scopedDayPL[p.date]-=U});
   let stk=0,stT='';
   for(const[d,pl]of Object.entries(scopedDayPL).sort((a,b)=>b[0].localeCompare(a[0]))){if(pl===0)continue;if(!stk){stT=pl>0?'W':'L';stk=1}else if((pl>0&&stT==='W')||(pl<0&&stT==='L'))stk++;else break}
   // Grade/market/side breakdowns — respect scope
@@ -109,7 +110,7 @@ function stats(){
   // Daily breakdown respects scope
   const dayU={};Object.keys(S.days).forEach(d=>{const dp=sP(S.days[d].picks).filter(p=>p.resolved&&p.hit!=='dnp'&&inScope(p));if(dp.length)dayU[d]={u:calcU(dp),picks:sP(S.days[d].picks).filter(inScope).length,hits:dp.filter(p=>p.hit===true).length,miss:dp.filter(p=>p.hit===false).length,dec:dp.filter(p=>p.hit===true||p.hit===false).length}});
   // bbPL kept for History page (always best-bets-based there)
-  const bbPL={};allRes.filter(p=>p.list==='best_bets').forEach(p=>{if(!bbPL[p.date])bbPL[p.date]=0;const o=p.best_odds;if(p.hit){bbPL[p.date]+=o>0?(10*o/100):(10*100/Math.abs(o))}else bbPL[p.date]-=10});
+  const bbPL={};allRes.filter(p=>p.list==='best_bets').forEach(p=>{if(!bbPL[p.date])bbPL[p.date]=0;const o=p.best_odds;if(p.hit){bbPL[p.date]+=o>0?(U*o/100):(U*100/Math.abs(o))}else bbPL[p.date]-=U});
   return{wr,roi,stk,stT,tp,hits:hits.length,total:res.length,bG,bM,bS,bL,cW:cR.length?Math.round(cR.filter(p=>p.hit===true).length/cR.length*100):0,nW:nR.length?Math.round(nR.filter(p=>p.hit===true).length/nR.length*100):0,cN:cR.length,nN:nR.length,allD,bbPL,bbU,lotU,totalU,scopedU,bbHits,bbDec,lotHits,lotDec,gU,dayU,allResCount:res.length,allHits:hits.length,allDec:res.length}}
 function genD(){const nP=[{n:'Luka Doncic',g:'Mavs @ Lakers',t:'7:30 PM'},{n:'Jayson Tatum',g:'Celtics @ Bucks',t:'8:00 PM'},{n:'Nikola Jokic',g:'Nuggets @ Warriors',t:'10:00 PM'},{n:'Anthony Edwards',g:'Wolves @ Suns',t:'9:00 PM'},{n:'Shai Gilgeous-Alexander',g:'Thunder @ Kings',t:'10:30 PM'},{n:'Tyrese Haliburton',g:'Pacers @ Knicks',t:'7:00 PM'},{n:'Donovan Mitchell',g:'Cavs @ Heat',t:'7:30 PM'},{n:'Jalen Brunson',g:'Knicks @ Pacers',t:'7:00 PM'},{n:'Trae Young',g:'Hawks @ Magic',t:'7:30 PM'},{n:'Ja Morant',g:'Grizz @ Pelicans',t:'8:00 PM'},{n:'Devin Booker',g:'Suns @ Wolves',t:'9:00 PM'},{n:'LaMelo Ball',g:'Hornets @ Raptors',t:'7:00 PM'}];
   const mP=[{n:'Aaron Judge',g:'NYY @ BOS',t:'7:10 PM'},{n:'Shohei Ohtani',g:'LAD @ SF',t:'9:45 PM'},{n:'Mookie Betts',g:'LAD @ SF',t:'9:45 PM'},{n:'Ronald Acuna Jr.',g:'ATL @ PHI',t:'7:05 PM'},{n:'Corey Seager',g:'TEX @ HOU',t:'8:10 PM'},{n:'Bobby Witt Jr.',g:'KC @ MIN',t:'7:40 PM'},{n:'Gunnar Henderson',g:'BAL @ TB',t:'6:50 PM'},{n:'Bryce Harper',g:'PHI @ ATL',t:'7:20 PM'},{n:'Juan Soto',g:'NYM @ WSH',t:'7:05 PM'},{n:'Elly De La Cruz',g:'CIN @ MIL',t:'8:10 PM'}];
@@ -130,11 +131,11 @@ function render(){const st=stats(),sp=SP[S.sp],sc=sC(),a=document.getElementById
   const themeIcon=S.theme==='dark'?'☀️':'🌙';
   const ds=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const h=`<div class="hdr"><div class="hdr-in"><div class="logo-w"><img class="logo-mark" src="https://raw.githubusercontent.com/dohandley/ChasinCheddar/main/logo.png"><div><div class="logo-text"><span>Chasin Cheddar's</span> Command Center</div><div class="logo-date">${ds.toUpperCase()}</div></div></div>
-    <div class="hdr-r"><div class="chip">${scopeLabel()} <span style="color:var(--text-4);margin-left:2px">·</span></div><div class="chip">W-L <span class="${st.roi>=0?'p':'n'}">${st.hits}-${st.total-st.hits}</span></div><div class="chip">ROI <span class="${st.roi>=0?'p':'n'}">${st.roi>=0?'+':''}${st.roi}%</span></div><div class="chip">Units <span class="${st.scopedU>=0?'p':'n'}">${st.scopedU>=0?'+':''}${st.scopedU.toFixed(1)}u</span></div><div class="chip">Streak <span class="${st.stT==='W'?'p':'n'}">${st.stk}${st.stT||'—'}</span></div><button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">${themeIcon}</button><button class="btn" onclick="showImp()">Import</button></div></div></div>`;
+    <div class="hdr-r"><div class="chip">${scopeLabel()} <span style="color:var(--text-4);margin-left:2px">·</span></div><div class="chip">W-L <span class="${st.roi>=0?'p':'n'}">${st.hits}-${st.total-st.hits}</span></div><div class="chip">ROI <span class="${st.roi>=0?'p':'n'}">${st.roi>=0?'+':''}${st.roi}%</span></div><div class="chip">Units <span class="${st.scopedU>=0?'p':'n'}">${st.scopedU>=0?'+':''}${st.scopedU.toFixed(1)}u</span></div><div class="chip">Streak <span class="${st.stT==='W'?'p':'n'}">${st.stk}${st.stT||'—'}</span></div><div class="chip" title="1u stake size in dollars">1u = $<input type="number" min="1" step="1" value="${S.unit}" onchange="setUnit(this.value)" style="width:48px;background:transparent;border:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10.5px;padding:0 0 0 2px;outline:none"></div><button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">${themeIcon}</button><button class="btn" onclick="showImp()">Import</button></div></div></div>`;
   const scopeBtns=[['bb','Best Bets'],['lot','Lotto'],['all','All']].map(([k,l])=>`<button class="fb ${S.scope===k?'on':''}" onclick="setScope('${k}')" style="font-size:11px">${l}</button>`).join('');
   const nav=`<div class="nav"><div class="nav-in">${Object.entries(SP).map(([k,v])=>`<button class="sp ${S.sp===k?'on':''}" onclick="setSp('${k}')">${v.e} ${v.l}${sc[k]?` <span class="badge">${sc[k]}</span>`:''}</button>`).join('')}<div class="ndiv"></div>${[['picks','Picks'],['history','History'],['performance','Performance'],['analysis','Analysis']].map(([id,l])=>`<button class="nt ${S.v===id?'on':''}" onclick="setV('${id}')">${l}</button>`).join('')}<div class="ndiv"></div><span class="fl" style="margin-right:4px">Scope</span>${scopeBtns}</div></div>`;
   a.innerHTML=h+nav+`<div class="body">${S.v==='picks'?pgP(st):S.v==='history'?pgH(st):S.v==='performance'?pgPf(st):pgA(st)}</div>`}
-window.setV=v=>{S.v=v;sv();render()};window.setSp=s=>{S.sp=s;sv();render()};window.setScope=sc=>{S.scope=sc;sv();render()};
+window.setV=v=>{S.v=v;sv();render()};window.setSp=s=>{S.sp=s;sv();render()};window.setScope=sc=>{S.scope=sc;sv();render()};window.setUnit=u=>{const n=Math.max(1,Number(u)||10);S.unit=n;sv();render()};
 window.toggleDay=d=>{const rows=document.querySelectorAll(`.detail-row[data-day="${d}"]`);const arrow=document.getElementById('arrow-'+d);const showing=rows[0]&&rows[0].style.display!=='none';rows.forEach(r=>r.style.display=showing?'none':'table-row');if(arrow)arrow.textContent=showing?'▶':'▼'};
 window.toggleTheme=()=>{S.theme=S.theme==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',S.theme);sv();render()};
 
@@ -178,7 +179,7 @@ function pgPf(st){const sp=SP[S.sp];if(!st.allDec)return`<div class="card" style
       <div class="pf-stat"><div class="pf-stat-l">Picks</div><div class="pf-stat-v">${st.allResCount}</div></div>
       <div class="pf-stat"><div class="pf-stat-l">Decided</div><div class="pf-stat-v">${st.allDec}</div></div>
       <div class="pf-stat"><div class="pf-stat-l">Hit Rate</div><div class="pf-stat-v" style="color:${rc(allWr)}">${allWr}%</div></div>
-      <div class="pf-stat"><div class="pf-stat-l">Units</div><div class="pf-stat-v" style="color:${uc(st.scopedU)}">${uFmt(st.scopedU)}</div></div>
+      <div class="pf-stat"><div class="pf-stat-l">Units</div><div class="pf-stat-v" style="color:${uc(st.scopedU)}">${uFmt(st.scopedU)}</div><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:${uc(st.scopedU)};margin-top:3px;font-weight:700">${st.scopedU>=0?'+':'-'}$${Math.round(Math.abs(st.scopedU*(Number(S.unit)||10)))}</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
       <div class="strk"><div class="strk-n" style="color:${sc}">${st.stk}${st.stT||'—'}</div><div class="strk-l">${st.stT==='W'?'Win':'Loss'} Streak</div></div>
