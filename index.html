@@ -133,8 +133,8 @@ function render(){const st=stats(),sp=SP[S.sp],sc=sC(),a=document.getElementById
   const h=`<div class="hdr"><div class="hdr-in"><div class="logo-w"><img class="logo-mark" src="https://raw.githubusercontent.com/dohandley/ChasinCheddar/main/logo.png"><div><div class="logo-text"><span>Chasin Cheddar's</span> Command Center</div><div class="logo-date">${ds.toUpperCase()}</div></div></div>
     <div class="hdr-r"><div class="chip">${scopeLabel()} <span style="color:var(--text-4);margin-left:2px">·</span></div><div class="chip">W-L <span class="${st.roi>=0?'p':'n'}">${st.hits}-${st.total-st.hits}</span></div><div class="chip">ROI <span class="${st.roi>=0?'p':'n'}">${st.roi>=0?'+':''}${st.roi}%</span></div><div class="chip">Units <span class="${st.scopedU>=0?'p':'n'}">${st.scopedU>=0?'+':''}${st.scopedU.toFixed(1)}u</span></div><div class="chip">Streak <span class="${st.stT==='W'?'p':'n'}">${st.stk}${st.stT||'—'}</span></div><div class="chip" title="1u stake size in dollars">1u = $<input type="number" min="1" step="1" value="${S.unit}" onchange="setUnit(this.value)" style="width:48px;background:transparent;border:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10.5px;padding:0 0 0 2px;outline:none"></div><button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">${themeIcon}</button><button class="btn" onclick="showImp()">Import</button></div></div></div>`;
   const scopeBtns=[['bb','Best Bets'],['lot','Lotto'],['all','All']].map(([k,l])=>`<button class="fb ${S.scope===k?'on':''}" onclick="setScope('${k}')" style="font-size:11px">${l}</button>`).join('');
-  const nav=`<div class="nav"><div class="nav-in">${Object.entries(SP).map(([k,v])=>`<button class="sp ${S.sp===k?'on':''}" onclick="setSp('${k}')">${v.e} ${v.l}${sc[k]?` <span class="badge">${sc[k]}</span>`:''}</button>`).join('')}<div class="ndiv"></div>${[['picks','Picks'],['history','History'],['performance','Performance'],['analysis','Analysis']].map(([id,l])=>`<button class="nt ${S.v===id?'on':''}" onclick="setV('${id}')">${l}</button>`).join('')}<div class="ndiv"></div><span class="fl" style="margin-right:4px">Scope</span>${scopeBtns}</div></div>`;
-  a.innerHTML=h+nav+`<div class="body">${S.v==='picks'?pgP(st):S.v==='history'?pgH(st):S.v==='performance'?pgPf(st):pgA(st)}</div>`}
+  const nav=`<div class="nav"><div class="nav-in">${Object.entries(SP).map(([k,v])=>`<button class="sp ${S.sp===k?'on':''}" onclick="setSp('${k}')">${v.e} ${v.l}${sc[k]?` <span class="badge">${sc[k]}</span>`:''}</button>`).join('')}<div class="ndiv"></div>${[['picks','Picks'],['history','History'],['performance','Performance'],['analysis','Analysis'],['blend','Blend']].map(([id,l])=>`<button class="nt ${S.v===id?'on':''}" onclick="setV('${id}')">${l}</button>`).join('')}<div class="ndiv"></div><span class="fl" style="margin-right:4px">Scope</span>${scopeBtns}</div></div>`;
+  a.innerHTML=h+nav+`<div class="body">${S.v==='picks'?pgP(st):S.v==='history'?pgH(st):S.v==='performance'?pgPf(st):S.v==='blend'?pgBl(st):pgA(st)}</div>`}
 window.setV=v=>{S.v=v;sv();render()};window.setSp=s=>{S.sp=s;sv();render()};window.setScope=sc=>{S.scope=sc;sv();render()};window.setUnit=u=>{const n=Math.max(1,Number(u)||10);S.unit=n;sv();render()};
 window.toggleDay=d=>{const rows=document.querySelectorAll(`.detail-row[data-day="${d}"]`);const arrow=document.getElementById('arrow-'+d);const showing=rows[0]&&rows[0].style.display!=='none';rows.forEach(r=>r.style.display=showing?'none':'table-row');if(arrow)arrow.textContent=showing?'▶':'▼'};
 window.toggleTheme=()=>{S.theme=S.theme==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',S.theme);sv();render()};
@@ -296,6 +296,187 @@ window.doImp=()=>{const raw=document.getElementById('id')?.value;if(!raw?.trim()
   const parts=[`${data.length} picks`];if(dupes)parts.push(`${dupes} dupes removed`);if(rc)parts.push(`${rc} resolved`);if(matched)parts.push(`${matched} matched`);
   toast(`Imported ${parts.join(' · ')}!`)}catch(e){toast('Invalid JSON');console.error(e)}};
 window.clr=()=>{if(!confirm('Clear ALL data (NBA + MLB)?'))return;S.days={};sv();document.getElementById('imp')?.remove();render();toast('Cleared all data')};
+
+// ═══ BLEND LAB ═══════════════════════════════════════════════════════════
+if(!S.blendData) S.blendData={};
+
+function pgBl(st){
+  const sp=SP[S.sp];
+  const bd=S.blendData||{};
+  const allBlend=[];
+  Object.entries(bd).forEach(([d,picks])=>{picks.forEach(p=>{if((p.sport||S.sp)===S.sp) allBlend.push({...p,date:d})})});
+
+  if(!allBlend.length){
+    return`<div class="card" style="text-align:center;padding:48px">
+      <div style="font-size:2.5rem;margin-bottom:12px">🧪</div>
+      <div style="font-weight:800;font-size:16px;color:var(--text);margin-bottom:8px">MLB Blend Lab</div>
+      <div style="color:var(--text-3);font-size:13px;max-width:520px;margin:0 auto;line-height:1.7">
+        The blend layer combines MKB market signals with independent matchup data — batter recent form, handedness splits, and pitcher vulnerability — to produce adjusted grades.<br><br>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--surface-2);padding:4px 8px;border-radius:4px;border:1px solid var(--border);display:inline-block;margin:4px 0">mkb_mlb → simpleodds --matchups → atbats → mlb_blend</span><br><br>
+        Import blended output to compare MKB vs blended grades side-by-side and track which adjustments actually improve hit rate.
+      </div>
+      <div style="margin-top:24px;display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-p" onclick="showBlendImp()">Import Blend Data</button>
+        <button class="btn" onclick="loadBlendDemo()">Load Demo</button>
+      </div>
+    </div>`}
+
+  // Sync hit/miss from main picks data
+  allBlend.forEach(p=>{const day=S.days[p.date];if(day){const ep=(day.picks||[]).find(x=>nK(x.player)===nK(p.player)&&nK(x.market)===nK(p.market)&&x.date===p.date);if(ep&&ep.resolved){p.hit=ep.hit;p.resolved=true}}});
+
+  const resolved=allBlend.filter(p=>p.hit===true||p.hit===false);
+  const boosted=allBlend.filter(p=>p.action==='boost');
+  const demoted=allBlend.filter(p=>p.action==='demote');
+  const held=allBlend.filter(p=>p.action==='hold');
+  const bRes=resolved.filter(p=>p.action==='boost');
+  const dRes=resolved.filter(p=>p.action==='demote');
+  const hRes=resolved.filter(p=>p.action==='hold');
+  const bHit=bRes.filter(p=>p.hit===true).length;
+  const dHit=dRes.filter(p=>p.hit===true).length;
+  const hHit=hRes.filter(p=>p.hit===true).length;
+  const bWr=bRes.length?Math.round(bHit/bRes.length*100):0;
+  const dWr=dRes.length?Math.round(dHit/dRes.length*100):0;
+  const hWr=hRes.length?Math.round(hHit/hRes.length*100):0;
+  const rc=r=>r>=55?'var(--green-text)':r>=45?'var(--amber-text)':'var(--red-text)';
+
+  const GO={S:0,A:1,B:2,C:3};
+  const gradeUp=allBlend.filter(p=>(GO[p.blended_grade]??3)<(GO[p.mkb_grade]??3)).length;
+  const gradeDown=allBlend.filter(p=>(GO[p.blended_grade]??3)>(GO[p.mkb_grade]??3)).length;
+  const gradeSame=allBlend.length-gradeUp-gradeDown;
+  const dates=Object.keys(bd).filter(d=>bd[d].some(p=>(p.sport||S.sp)===S.sp)).sort().reverse();
+
+  // Row 1: Summary stats
+  const summary=`<div class="stats" style="grid-template-columns:repeat(4,1fr)">
+    <div class="st"><div class="st-l">BLEND PICKS</div><div class="st-v">${allBlend.length}</div><div class="st-s">${dates.length} day${dates.length!==1?'s':''}</div></div>
+    <div class="st"><div class="st-l">⬆ BOOSTED</div><div class="st-v" style="color:var(--green-text)">${boosted.length}</div><div class="st-s">${bRes.length?bWr+'% hit':'awaiting results'}</div></div>
+    <div class="st"><div class="st-l">⬇ DEMOTED</div><div class="st-v" style="color:var(--red-text)">${demoted.length}</div><div class="st-s">${dRes.length?dWr+'% hit':'awaiting results'}</div></div>
+    <div class="st"><div class="st-l">➡ HELD</div><div class="st-v" style="color:var(--text-3)">${held.length}</div><div class="st-s">${hRes.length?hWr+'% hit':'awaiting results'}</div></div>
+  </div>`;
+
+  // Row 2: Grade movement + validation signal
+  const minPicks=10;
+  const gradeMove=`<div class="cg"><div class="ch"><div class="ct">🧬 Grade Movement</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;padding:16px 0;gap:8px">
+      <div><div style="font-size:2rem;font-weight:800;color:var(--green-text)">${gradeUp}</div><div style="font-size:10px;color:var(--text-4);font-family:'JetBrains Mono',monospace;margin-top:4px">UPGRADED</div></div>
+      <div><div style="font-size:2rem;font-weight:800;color:var(--text-3)">${gradeSame}</div><div style="font-size:10px;color:var(--text-4);font-family:'JetBrains Mono',monospace;margin-top:4px">UNCHANGED</div></div>
+      <div><div style="font-size:2rem;font-weight:800;color:var(--red-text)">${gradeDown}</div><div style="font-size:10px;color:var(--text-4);font-family:'JetBrains Mono',monospace;margin-top:4px">DOWNGRADED</div></div>
+    </div></div>
+    <div class="ch"><div class="ct">🎯 Validation Signal</div>
+      <div style="padding:16px 0">${resolved.length>=minPicks?`
+        <div style="text-align:center">
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-4);margin-bottom:10px">BOOSTED vs DEMOTED HIT RATE</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:20px">
+            <div><div style="font-size:1.8rem;font-weight:800;color:${rc(bWr)}">${bWr}%</div><div style="font-size:9px;color:var(--text-4);margin-top:3px">Boosted (${bRes.length})</div></div>
+            <div style="font-size:11px;color:var(--text-4);font-weight:700">vs</div>
+            <div><div style="font-size:1.8rem;font-weight:800;color:${rc(dWr)}">${dWr}%</div><div style="font-size:9px;color:var(--text-4);margin-top:3px">Demoted (${dRes.length})</div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:12px">${bWr>dWr+10?'✅ Blend adding signal — boosted picks outperform demoted':bWr>dWr?'📊 Slight edge — more data needed':'⚠️ Signal unclear — blend may need tuning'}</div>
+        </div>`:`
+        <div style="text-align:center;color:var(--text-4);font-size:12px;padding:12px 0">
+          Need ${minPicks-resolved.length} more resolved pick${minPicks-resolved.length!==1?'s':''}<br>
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace">${resolved.length}/${minPicks} minimum for comparison</span>
+        </div>`}
+      </div>
+    </div></div>`;
+
+  // Row 3: Picks table by day
+  const GM2={s:'gs',a:'ga',b:'gb',c:'gc'};
+  const dayBlocks=dates.map(d=>{
+    const dp=(bd[d]||[]).filter(p=>(p.sport||S.sp)===S.sp);
+    if(!dp.length) return'';
+    const detailRows=dp.map(p=>{
+      const mkbGc=GM2[p.mkb_grade?.toLowerCase()]||'gc';
+      const blGc=GM2[p.blended_grade?.toLowerCase()]||'gc';
+      const diff=(GO[p.mkb_grade]??3)-(GO[p.blended_grade]??3);
+      const arrow=diff>0?'⬆':diff<0?'⬇':'—';
+      const arrowC=diff>0?'var(--green-text)':diff<0?'var(--red-text)':'var(--text-4)';
+      const mS=p.matchup_score!=null?p.matchup_score.toFixed(1):'—';
+      const bS=p.batter_score!=null?p.batter_score.toFixed(1):'—';
+      const pS=p.pitcher_score!=null?p.pitcher_score.toFixed(1):'—';
+      let hitBadge='<span style="color:var(--text-4);font-size:10px">pending</span>';
+      const existDay=S.days[d];
+      if(existDay){const ep=(existDay.picks||[]).find(x=>nK(x.player)===nK(p.player)&&nK(x.market)===nK(p.market)&&x.date===d);
+        if(ep&&ep.resolved){const c=ep.hit===true?'hit':ep.hit===false?'miss':'push';const l=ep.hit===true?'HIT':ep.hit===false?'MISS':'PUSH';hitBadge=`<span class="rb ${c}" style="cursor:default;font-size:9px;padding:2px 6px">${l}</span>`}}
+      const reasonTip=p.reason?` title="${p.reason.replace(/"/g,'&quot;')}"`:'';
+      return`<tr class="blend-row" data-bday="${d}" style="display:none;background:var(--surface-2)">
+        <td style="font-weight:600;font-size:12px;padding-left:20px">${p.player}</td>
+        <td><span class="pp ${(p.side||'over').toLowerCase()==='under'?'pp-u':'pp-o'}" style="font-size:10px">${p.market} ${p.side||'Over'} <span class="ln">${p.line??''}</span></span></td>
+        <td style="text-align:center"><span class="gr ${mkbGc}" style="font-size:9px;padding:2px 6px">${p.mkb_grade||'—'}</span></td>
+        <td style="text-align:center"><span style="color:${arrowC};font-weight:800"${reasonTip}>${arrow}</span></td>
+        <td style="text-align:center"><span class="gr ${blGc}" style="font-size:9px;padding:2px 6px">${p.blended_grade||'—'}</span></td>
+        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px">${mS}</td>
+        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue-text)">${bS}</td>
+        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber-text)">${pS}</td>
+        <td style="text-align:center">${hitBadge}</td></tr>`}).join('');
+    return`<tr class="day-row" onclick="toggleBD('${d}')" style="cursor:pointer"><td colspan="9" style="font-weight:700;padding:10px 12px">${fD(d)} <span style="color:var(--text-4);font-size:11px;margin-left:6px">${dp.length} picks</span> <span id="ba-${d}" style="font-size:10px;color:var(--text-4);margin-left:4px">▶</span></td></tr>${detailRows}`}).join('');
+
+  const table=`<div class="card" style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="ct">🧬 MKB vs Blended Grades</div><button class="btn" onclick="showBlendImp()" style="font-size:10px">Import Blend</button></div>
+    <div class="tw"><table><thead><tr><th>Player</th><th>Prop</th><th style="text-align:center">MKB</th><th style="text-align:center"></th><th style="text-align:center">Blend</th><th style="text-align:center">Mch</th><th style="text-align:center">Bat</th><th style="text-align:center">Pit</th><th style="text-align:center">Result</th></tr></thead><tbody>${dayBlocks}</tbody></table></div></div>`;
+
+  return summary+gradeMove+table;
+}
+
+window.toggleBD=d=>{const rows=document.querySelectorAll(`.blend-row[data-bday="${d}"]`);const ar=document.getElementById('ba-'+d);const show=rows[0]&&rows[0].style.display!=='none';rows.forEach(r=>r.style.display=show?'none':'table-row');if(ar)ar.textContent=show?'▶':'▼'};
+
+// ═══ BLEND IMPORT MODAL ═══
+window.showBlendImp=()=>{const m=document.createElement('div');m.className='mbg';m.id='blimp';m.onclick=e=>{if(e.target===m)m.remove()};
+  m.innerHTML=`<div class="mdl"><h3>🧬 Import Blend Data</h3>
+    <div class="callout">Paste the JSON output from <strong>mlb_blend.py</strong>. Saved to <code>blended_log_mlb.json</code>.<br><br>
+    Expected fields: <code>player, market, side, line, mkb_grade, blended_grade, matchup_score, batter_score, pitcher_score, action, reason</code></div>
+    <div id="bdz" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;margin-bottom:10px;transition:all .15s" onclick="document.getElementById('bfp').click()" ondragover="event.preventDefault();this.style.borderColor='var(--green)';this.style.background='var(--green-bg)'" ondragleave="this.style.borderColor='var(--border)';this.style.background='transparent'" ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='transparent';hBF(event.dataTransfer.files[0])">
+      <div style="font-size:1.3rem;margin-bottom:6px">🧬</div>
+      <div style="font-weight:700;font-size:12px;color:var(--text-2)">Drop blended_log_mlb.json here or click to browse</div>
+      <input type="file" id="bfp" accept=".json" style="display:none" onchange="hBF(this.files[0])"></div>
+    <div style="text-align:center;color:var(--text-4);font-size:10px;font-weight:600;letter-spacing:.1em;margin-bottom:8px">OR PASTE MANUALLY</div>
+    <textarea id="bid" placeholder="Paste blend JSON here..." style="min-height:120px"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn-p btn" onclick="dBI()" style="flex:1">Import Blend</button><button class="btn" onclick="document.getElementById('blimp').remove()">Cancel</button></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><button class="btn btn-d" onclick="clrBl()">Clear Blend Data</button></div></div>`;
+  document.body.appendChild(m)};
+
+window.hBF=f=>{if(!f)return;const r=new FileReader();r.onload=e=>{const ta=document.getElementById('bid');if(ta)ta.value=e.target.result;document.getElementById('bdz').innerHTML=`<div style="color:var(--green-text);font-weight:700;font-size:12px">✓ ${f.name} loaded</div><div style="font-size:11px;color:var(--text-4);margin-top:2px">Click Import Blend to continue</div>`};r.readAsText(f)};
+
+window.dBI=()=>{const raw=document.getElementById('bid')?.value;if(!raw?.trim()){toast('Paste blend JSON first');return}
+  try{let data=JSON.parse(raw);
+    if(!Array.isArray(data)){if(typeof data==='object'){const p=[];Object.values(data).forEach(v=>{if(Array.isArray(v))p.push(...v)});data=p.length?p:[data]}}
+    if(!data.length){toast('No blend picks found');return}
+    let count=0;
+    data.forEach(p=>{
+      const d=p.date||td();
+      if(!S.blendData[d])S.blendData[d]=[];
+      const key=nK(p.player)+'|'+nK(p.market)+'|'+d;
+      const idx=S.blendData[d].findIndex(x=>nK(x.player)+'|'+nK(x.market)+'|'+x.date===key);
+      const entry={player:p.player||'?',market:p.market||'',side:p.side||'Over',line:p.line||0,sport:p.sport||'mlb',
+        mkb_grade:p.mkb_grade||p.grade||'C',blended_grade:p.blended_grade||p.blend_grade||'C',
+        matchup_score:p.matchup_score??p.mch??null,batter_score:p.batter_score??p.bat??null,
+        pitcher_score:p.pitcher_score??p.pit??null,bvp_mod:p.bvp_mod??null,
+        action:p.action||p.boost_or_demote||'hold',reason:p.reason||'',date:d};
+      if(idx>=0){S.blendData[d][idx]=entry}else{S.blendData[d].push(entry);count++}
+    });
+    sv();document.getElementById('blimp')?.remove();render();
+    toast(`Imported ${count} blend picks!`)}
+  catch(e){toast('Invalid JSON');console.error(e)}};
+
+window.clrBl=()=>{if(!confirm('Clear all blend data?'))return;S.blendData={};sv();document.getElementById('blimp')?.remove();render();toast('Blend data cleared')};
+
+// ═══ BLEND DEMO ═══
+window.loadBlendDemo=()=>{
+  const players=[{n:'Aaron Judge',g:'NYY @ BOS'},{n:'Shohei Ohtani',g:'LAD @ SF'},{n:'Mookie Betts',g:'LAD @ SF'},{n:'Juan Soto',g:'NYM @ WSH'},{n:'Bobby Witt Jr.',g:'KC @ MIN'},{n:'Gunnar Henderson',g:'BAL @ TB'},{n:'Bryce Harper',g:'PHI @ ATL'},{n:'Corey Seager',g:'TEX @ HOU'},{n:'Elly De La Cruz',g:'CIN @ MIL'},{n:'Trea Turner',g:'PHI @ ATL'},{n:'Marcus Semien',g:'TEX @ HOU'},{n:'Rafael Devers',g:'BOS @ NYY'}];
+  const mkts=['H','TB','HR','RBI','R','K','SB','BB'];
+  const P=a=>a[Math.floor(Math.random()*a.length)];
+  const R=(a,b)=>Math.round((Math.random()*(b-a)+a)*10)/10;
+  const grs=['S','A','B'];const acts=['boost','demote','hold','hold'];
+  const reasons=['Strong last14 barrel rate','Pitcher vulnerable to RHB','Cold streak last 7 days','Handedness mismatch','High K-rate vs pitch type','BvP history supports','Recent form declining','Pitcher splits favor over',''];
+  const t=new Date();const bd={};
+  for(let d=0;d<7;d++){const dt=new Date(t);dt.setDate(dt.getDate()-d);const ds=dt.toISOString().slice(0,10);bd[ds]=[];
+    const n=Math.floor(Math.random()*6)+5;
+    for(let i=0;i<n;i++){const pl=P(players);const mkbG=P(grs);const act=P(acts);
+      let blG=mkbG;if(act==='boost'){const gi={S:'S',A:'S',B:'A',C:'B'};blG=gi[mkbG]||mkbG}
+      else if(act==='demote'){const gi={S:'A',A:'B',B:'C',C:'C'};blG=gi[mkbG]||mkbG}
+      bd[ds].push({player:pl.n,market:P(mkts),side:P(['Over','Under']),line:R(0.5,3.5),sport:'mlb',
+        mkb_grade:mkbG,blended_grade:blG,matchup_score:R(25,85),batter_score:R(20,90),pitcher_score:R(15,80),
+        bvp_mod:R(-5,8),action:act,reason:P(reasons),date:ds})}}
+  S.blendData=bd;sv();render();toast('Blend demo loaded — 7 days!')};
+
 render();
 </script>
 </body>
