@@ -204,8 +204,50 @@ function pgPf(st){const sp=SP[S.sp];if(!st.allDec)return`<div class="card" style
 function pgA(st){const sp=SP[S.sp];if(!st.total)return`<div class="card" style="text-align:center;padding:40px"><div style="color:var(--text-3)">Need resolved ${sp.l} picks.</div><br><button class="btn" onclick="loadD()">Load Demo</button></div>`;
   const B=(v,l,s,c)=>`<div><div style="font-size:2rem;font-weight:800;color:${c};letter-spacing:-.03em">${v}%</div><div style="font-size:10px;color:var(--text-4);font-family:'JetBrains Mono',monospace;margin-top:4px">${l} · ${s}</div></div>`;const oW=st.bS.Over.t?Math.round(st.bS.Over.h/st.bS.Over.t*100):0,uW=st.bS.Under.t?Math.round(st.bS.Under.h/st.bS.Under.t*100):0;const bbW=st.bL.best_bets.t?Math.round(st.bL.best_bets.h/st.bL.best_bets.t*100):0,ltW=st.bL.lotto.t?Math.round(st.bL.lotto.h/st.bL.lotto.t*100):0;
   const evB={'0-5':{t:0,h:0},'5-10':{t:0,h:0},'10-15':{t:0,h:0},'15+':{t:0,h:0}};rS().forEach(p=>{const k=p.ev>=15?'15+':p.ev>=10?'10-15':p.ev>=5?'5-10':'0-5';evB[k].t++;if(p.hit)evB[k].h++});const mkts=Object.entries(st.bM).sort((a,b)=>b[1].t-a[1].t);
+
+  // ── Blend section: only render if MLB picks carry blend fields ────────────
+  // Reads from all resolved picks, buckets by blend_delta, shows win%/units/ROI.
+  // This is the "did the BvP/trends filter help?" rollup — parity with
+  // blend_tracker.py's terminal output.
+  const _uFor=p=>{if(p.hit!==true&&p.hit!==false)return 0;const o=p.best_odds||0;if(p.hit===true)return o>0?o/100:100/Math.abs(o);return -1};
+  const allRes=rS().filter(p=>p.hit===true||p.hit===false);
+  const blendPicks=allRes.filter(p=>p.blend_delta);
+  let blendSection='';
+  if(S.sp==='mlb'&&blendPicks.length){
+    const buckets=[
+      ['↑ boost','Boosted','var(--green-text)','var(--green-bg)','var(--green-border)'],
+      ['= confirm','Confirmed','var(--green-text)','var(--green-bg)','var(--green-border)'],
+      ['= support','Supported','var(--blue-text)','var(--blue-bg)','var(--blue-border)'],
+      ['= neutral','Neutral','var(--text-2)','var(--surface-2)','var(--border)'],
+      ['↓ weak','Weak','var(--amber-text)','var(--amber-bg)','var(--amber-border)'],
+      ['✗ veto','Vetoed','var(--red-text)','var(--red-bg)','var(--red-border)'],
+      ['skip-market','Skipped','var(--text-3)','var(--surface-3)','var(--border)'],
+      ['no-match','No Match','var(--text-3)','var(--surface-3)','var(--border)'],
+    ];
+    const rows=buckets.map(([k,lbl,tc,bg,bd])=>{
+      const bucket=blendPicks.filter(p=>p.blend_delta===k);
+      if(!bucket.length)return '';
+      const w=bucket.filter(p=>p.hit===true).length,l=bucket.filter(p=>p.hit===false).length,dec=w+l;
+      const u=bucket.reduce((s,p)=>s+_uFor(p),0),roi=dec?u/dec*100:0;
+      const wp=dec?Math.round(w/dec*100):0;
+      return`<tr><td style="font-weight:700"><span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${bg};color:${tc};border:1px solid ${bd};font-size:11px">${lbl}</span></td><td>${bucket.length}</td><td>${w}-${l}</td><td style="color:${wp>=55?'var(--green-text)':wp>=45?'var(--amber-text)':'var(--red-text)'}"><strong>${wp}%</strong></td><td style="color:${u>=0?'var(--green-text)':'var(--red-text)'};font-family:'JetBrains Mono',monospace;font-weight:700">${u>=0?'+':''}${u.toFixed(2)}u</td><td style="color:${roi>=0?'var(--green-text)':'var(--red-text)'};font-family:'JetBrains Mono',monospace">${roi>=0?'+':''}${roi.toFixed(1)}%</td></tr>`}).filter(Boolean).join('');
+
+    // Head-to-head: MKB-S picks the blend kept vs demoted
+    const mkbS=blendPicks.filter(p=>p.grade==='S');
+    const kept=mkbS.filter(p=>p.blended_grade==='S');
+    const demoted=mkbS.filter(p=>p.blended_grade&&p.blended_grade!=='S');
+    let h2hRows='';
+    if(kept.length||demoted.length){
+      const mkRow=(lbl,grp)=>{if(!grp.length)return '';const w=grp.filter(p=>p.hit===true).length,l=grp.filter(p=>p.hit===false).length,dec=w+l,u=grp.reduce((s,p)=>s+_uFor(p),0),roi=dec?u/dec*100:0,wp=dec?Math.round(w/dec*100):0;return`<tr><td style="font-weight:700">${lbl}</td><td>${grp.length}</td><td>${w}-${l}</td><td style="color:${wp>=55?'var(--green-text)':wp>=45?'var(--amber-text)':'var(--red-text)'}"><strong>${wp}%</strong></td><td style="color:${u>=0?'var(--green-text)':'var(--red-text)'};font-family:'JetBrains Mono',monospace;font-weight:700">${u>=0?'+':''}${u.toFixed(2)}u</td><td style="color:${roi>=0?'var(--green-text)':'var(--red-text)'};font-family:'JetBrains Mono',monospace">${roi>=0?'+':''}${roi.toFixed(1)}%</td></tr>`};
+      h2hRows=mkRow('Blend kept S',kept)+mkRow('Blend demoted',demoted);
+    }
+
+    blendSection=`<div class="card"><div class="ct">🔀 Blend Filter Effect <span style="font-size:11px;color:var(--text-3);font-weight:500;font-family:'JetBrains Mono',monospace;margin-left:8px">— did BvP/trends help?</span></div><div class="tw"><table><thead><tr><th>Bucket</th><th>Total</th><th>W-L</th><th>Win %</th><th>Units</th><th>ROI</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="color:var(--text-3);text-align:center;padding:20px">No resolved blended picks yet</td></tr>'}</tbody></table></div>${h2hRows?`<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;letter-spacing:.05em">HEAD-TO-HEAD: MKB-S PICKS</div><div class="tw"><table><tbody>${h2hRows}</tbody></table></div></div>`:''}</div>`;
+  }
+
   return`<div class="cg"><div class="ch"><div class="ct">Over vs Under</div><div style="display:grid;grid-template-columns:1fr 1fr;text-align:center;padding:12px 0">${B(oW,'OVER',st.bS.Over.t+' bets','var(--blue-text)')}${B(uW,'UNDER',st.bS.Under.t+' bets','var(--gold-text)')}</div></div><div class="ch"><div class="ct">Best Bets vs Lotto</div><div style="display:grid;grid-template-columns:1fr 1fr;text-align:center;padding:12px 0">${B(bbW,'BEST BETS',st.bL.best_bets.t,'var(--amber-text)')}${B(ltW,'LOTTO',st.bL.lotto.t,'var(--blue-text)')}</div></div></div>
   <div class="cg"><div class="ch"><div class="ct">Confirmed vs Single</div><div style="display:grid;grid-template-columns:1fr 1fr;text-align:center;padding:12px 0">${B(st.cW,'CONFIRMED',st.cN,'var(--green-text)')}${B(st.nW,'SINGLE',st.nN,'var(--text-3)')}</div></div><div class="ch"><div class="ct">Win Rate by EV</div><div class="tw" style="border:none"><table><thead><tr><th>EV Range</th><th>Bets</th><th>Win %</th></tr></thead><tbody>${Object.entries(evB).map(([r,d])=>{const w=d.t?Math.round(d.h/d.t*100):0;return`<tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700">${r}%</td><td>${d.t}</td><td style="color:${w>=55?'var(--green-text)':w>=45?'var(--amber-text)':'var(--red-text)'}"><strong>${w}%</strong></td></tr>`}).join('')}</tbody></table></div></div></div>
+  ${blendSection}
   <div class="card"><div class="ct">${sp.e} Market Breakdown</div><div class="tw"><table><thead><tr><th>Market</th><th>Total</th><th>Hits</th><th>Win %</th><th style="width:28%">Accuracy</th></tr></thead><tbody>${mkts.map(([m,d])=>{const w=d.t?Math.round(d.h/d.t*100):0;return`<tr><td style="font-weight:700;color:var(--blue-text)">${m}</td><td>${d.t}</td><td>${d.h}</td><td style="color:${w>=55?'var(--green-text)':w>=45?'var(--amber-text)':'var(--red-text)'}"><strong>${w}%</strong></td><td><div style="width:100%;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${w}%;height:100%;border-radius:2px;background:${w>=55?'var(--green)':w>=45?'var(--amber)':'var(--red)'}"></div></div></td></tr>`}).join('')}</tbody></table></div></div>`}
 
 window.setF=(k,v)=>{S[k]=k==='f'?v.toLowerCase():v;sv();render()};
@@ -237,7 +279,9 @@ window.doImp=()=>{const raw=document.getElementById('id')?.value;if(!raw?.trim()
   function nH(h,r){if(!r)return{hit:null,resolved:false};if(h==='win'||h===true)return{hit:true,resolved:true};if(h==='loss'||h===false)return{hit:false,resolved:true};if(h==='dnp')return{hit:'dnp',resolved:true};return{hit:null,resolved:true}}
   let rc=0,matched=0;const byD={};
   data.forEach((p,i)=>{const d=p.date||td();if(!byD[d])byD[d]=[];let gr=p.grade||(p.score>=68?'S':p.score>=52?'A':p.score>=38?'B':'C');gr=gr.replace(/[🔥✅⚠️📊⭐\s]+/g,'').trim()||'C';if(gr==='FIRE')gr='S';if(gr==='SOLID')gr='A';if(gr==='LEAN')gr='B';const{hit,resolved}=nH(p.hit,p.resolved);if(resolved)rc++;let list=p.list||(Math.abs(p.best_odds||0)>=300?'lotto':'best_bets');if(list==='lotto_plays')list='lotto';
-    byD[d].push({id:p.id||`${d}-${p.sport||S.sp}-${i}`,sport:p.sport||S.sp,player:p.player||'?',game:p.game||'',game_time:p.game_time||'',market:p.market||'',side:p.side||'Over',line:p.line||0,best_odds:p.best_odds||0,best_book:p.best_book||'',ev:p.ev||0,kelly:p.kelly||0,coverage:p.coverage||0,score:p.score||0,grade:gr,list,dvp:p.dvp||0,boost:p.boost||1,proj_edge:p.proj_edge||0,confirmed:p.confirmed||false,actual_stat:p.actual_stat||null,hit,resolved,date:d,rank:p.rank||i+1})});
+    byD[d].push({id:p.id||`${d}-${p.sport||S.sp}-${i}`,sport:p.sport||S.sp,player:p.player||'?',game:p.game||'',game_time:p.game_time||'',market:p.market||'',side:p.side||'Over',line:p.line||0,best_odds:p.best_odds||0,best_book:p.best_book||'',ev:p.ev||0,kelly:p.kelly||0,coverage:p.coverage||0,score:p.score||0,grade:gr,list,dvp:p.dvp||0,boost:p.boost||1,proj_edge:p.proj_edge||0,confirmed:p.confirmed||false,actual_stat:p.actual_stat||null,hit,resolved,date:d,rank:p.rank||i+1,
+      // Blend layer passthrough — needed for Analysis > Blend section
+      blended_grade:p.blended_grade||null,blended_score:p.blended_score||null,blend_delta:p.blend_delta||null,matchup_score:p.matchup_score||null,opp_pitcher:p.opp_pitcher||''})});
 
   // ═══ DEDUP INCOMING: remove duplicates within the JSON file itself ═══
   let dupes=0;
@@ -275,6 +319,12 @@ window.doImp=()=>{const raw=document.getElementById('id')?.value;if(!raw?.trim()
         if(!found.game&&p.game)found.game=p.game;
         if(!found.game_time&&p.game_time)found.game_time=p.game_time;
         if(p.score&&p.score>found.score)found.score=p.score;
+        // Backfill blend fields — first MKB import won't have them, blended import will
+        if(p.blended_grade!=null)found.blended_grade=p.blended_grade;
+        if(p.blended_score!=null)found.blended_score=p.blended_score;
+        if(p.blend_delta!=null)found.blend_delta=p.blend_delta;
+        if(p.matchup_score!=null)found.matchup_score=p.matchup_score;
+        if(p.opp_pitcher)found.opp_pitcher=p.opp_pitcher;
       }else if(!found){ex.push(p)}
     });S.days[d].picks=ex}else S.days[d]={picks,imported:Date.now()};
     ['nba','mlb'].forEach(sp=>{['best_bets','lotto'].forEach(ls=>{const GO={S:0,A:1,B:2,C:3};const g=S.days[d].picks.filter(p=>p.sport===sp&&p.list===ls).sort((a,b)=>{if(ls==='best_bets'){const ga=GO[a.grade]!=null?GO[a.grade]:3;const gb=GO[b.grade]!=null?GO[b.grade]:3;if(ga!==gb)return ga-gb}return b.score-a.score});g.forEach((p,i)=>p.rank=i+1)})})});
